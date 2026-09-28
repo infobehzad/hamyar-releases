@@ -2,6 +2,11 @@
 name: arvan-place
 on:
   workflow_dispatch:
+    inputs:
+      map_file:
+        description: 'مسیر نگاشت در ریپو'
+        required: false
+        default: 'arvan-place/map.json'
 
 jobs:
   place:
@@ -19,6 +24,7 @@ jobs:
       APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
       APPWRITE_PROJECT: 6a9d59e3002751cc3ea8
       APPWRITE_BUCKET: 6aa1eaae00303400117b
+      MAP_FILE: ${{ inputs.map_file || 'arvan-place/map.json' }}
     steps:
       - uses: actions/checkout@v4
       - name: deps
@@ -46,7 +52,7 @@ jobs:
                             retries={"max_attempts": 2}),
           )
           bucket = os.environ["ARVAN_BUCKET"]
-          entries = json.load(open("arvan-place/map.json", encoding="utf-8"))
+          entries = json.load(open(os.environ.get("MAP_FILE") or "arvan-place/map.json", encoding="utf-8"))
           print("entries:", len(entries))
           ok = fail = 0
           prefixes = sorted({e["key"].rsplit("/", 1)[0] + "/" for e in entries})
