@@ -1,0 +1,34 @@
+[
+ {
+  "from": "html ها/جعبه ابزار عمومی/DJ-120D Plus.html",
+  "to": "html ها/جعبه ابزار عمومی/tool-dj120d.html"
+ },
+ {
+  "from": "html ها/جعبه ابزار عمومی/تقویم.html",
+  "to": "html ها/جعبه ابزار عمومی/tool-calendar.html"
+ },
+ {
+  "from": "html ها/جعبه ابزار عمومی/مبدل همه‌کاره مهندسی.html",
+  "to": "html ها/جعبه ابزار عمومی/tool-converter.html"
+ },
+ {
+  "from": "html ها/جعبه ابزار ریاضی/CASIO fx-991CW ClassWiz.html",
+  "to": "html ها/جعبه ابزار ریاضی/tool-casio991.html"
+ },
+ {
+  "from": "html ها/جعبه ابزار ریاضی/TI-Nspire CX II-T CAS .html",
+  "to": "html ها/جعبه ابزار ریاضی/tool-ti-nspire.html"
+ },
+ {
+  "from": "html ها/آزمایشگاه/Hamyar e Man - آزمایشگاه زیست پایه نهم.html",
+  "to": "html ها/آزمایشگاه/lab-09-biology.html"
+ },
+ {
+  "from": "html ها/آزمایشگاه/Hamyar e Man - آزمایشگاه شیمی پایه نهم.html",
+  "to": "html ها/آزمایشگاه/lab-09-chemistry.html"
+ },
+ {
+  "from": "html ها/آزمایشگاه/Hamyar e Man - آزمایشگاه فیزیک پایه نهم.html",
+  "to": "html ها/آزمایشگاه/lab-09-physics.html"
+ }
+]
