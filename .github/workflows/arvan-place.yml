@@ -1,0 +1,89 @@
+# جایگذاری محتوا در باکت آروان طبق پوشه‌بندی (بند ۷) — از روی نگاشت arvan-place/map.json
+name: arvan-place
+on:
+  workflow_dispatch:
+
+jobs:
+  place:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      ARVAN_ACCESS_KEY: ${{ secrets.ARVAN_ACCESS_KEY }}
+      ARVAN_SECRET_KEY: ${{ secrets.ARVAN_SECRET_KEY }}
+      ARVAN_ENDPOINT: https://s3.ir-thr-at1.arvanstorage.ir
+      ARVAN_REGION: ir-thr-at1
+      ARVAN_BUCKET: hamyar-e-man
+      APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+      APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
+      APPWRITE_PROJECT: 6a9d59e3002751cc3ea8
+      APPWRITE_BUCKET: 6aa1eaae00303400117b
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: python3 -m pip install -q boto3 requests
+      - name: place
+        run: |
+          python3 - <<'PY'
+          import json, os, time
+          import requests, boto3
+          from botocore.config import Config
+          from collections import Counter
+
+          AW = os.environ["APPWRITE_ENDPOINT"].rstrip("/")
+          H = {"X-Appwrite-Project": os.environ["APPWRITE_PROJECT"],
+               "X-Appwrite-Key": os.environ["APPWRITE_API_KEY"]}
+          s3 = boto3.client(
+              "s3",
+              aws_access_key_id=os.environ["ARVAN_ACCESS_KEY"],
+              aws_secret_access_key=os.environ["ARVAN_SECRET_KEY"],
+              endpoint_url=os.environ["ARVAN_ENDPOINT"],
+              region_name=os.environ["ARVAN_REGION"],
+              config=Config(signature_version="s3v4",
+                            s3={"addressing_style": "path"},
+                            connect_timeout=15, read_timeout=120,
+                            retries={"max_attempts": 2}),
+          )
+          bucket = os.environ["ARVAN_BUCKET"]
+          entries = json.load(open("arvan-place/map.json", encoding="utf-8"))
+          print("entries:", len(entries))
+          ok = fail = 0
+          prefixes = sorted({e["key"].rsplit("/", 1)[0] + "/" for e in entries})
+          for p in prefixes:
+              s3.put_object(Bucket=bucket, Key=p, Body=b"")
+          print("markers:", len(prefixes))
+          for i, e in enumerate(entries, 1):
+              mime = "image/jpeg" if e["kind"] == "jpg" else "application/octet-stream"
+              try:
+                  r = requests.get(f"{AW}/storage/buckets/{os.environ['APPWRITE_BUCKET']}/files/{e['id']}/download",
+                                   headers=H, timeout=180)
+                  if r.status_code != 200:
+                      raise RuntimeError(f"appwrite {r.status_code}")
+                  s3.put_object(Bucket=bucket, Key=e["key"], Body=r.content,
+                                ContentType=mime, ACL="public-read")
+                  ok += 1
+              except Exception as ex:
+                  fail += 1
+                  print("FAIL", e["id"], repr(ex)[:140])
+              if i % 20 == 0:
+                  print(f"progress {i}/{len(entries)} ok={ok} fail={fail}")
+          # گزارش نهایی پوشه‌ها
+          counts, sizes = Counter(), Counter()
+          token = None
+          while True:
+              kw = {"Bucket": bucket, "MaxKeys": 1000}
+              if token: kw["ContinuationToken"] = token
+              resp = s3.list_objects_v2(**kw)
+              for o in resp.get("Contents", []):
+                  k = o["Key"]
+                  top = k.split("/")[0] if "/" in k else "(root)"
+                  if not k.endswith("/"):
+                      counts[top] += 1
+                      sizes[top] += o["Size"]
+              if not resp.get("IsTruncated"): break
+              token = resp.get("NextContinuationToken")
+          for top in sorted(counts):
+              print(f"DIR {top}: files={counts[top]} bytes={sizes[top]}")
+          print(f"DONE ok={ok} fail={fail}")
+          PY
