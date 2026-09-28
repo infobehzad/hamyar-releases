@@ -1,0 +1,93 @@
+# ابزار باکت آروان — فقط از ریپوی عمومی (بدون سوختن دقیقه پولی و بدون لو رفتن محتوای اپ)
+name: arvan-tool
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "list = فقط گزارش | delete = حذف همه فایل‌ها بجز مارکر پوشه‌ها"
+        type: choice
+        required: true
+        default: list
+        options: [list, delete]
+
+jobs:
+  tool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      ARVAN_ENDPOINT: https://s3.ir-thr-at1.arvanstorage.ir
+      ARVAN_REGION: ir-thr-at1
+      ARVAN_BUCKET: hamyar-e-man
+      MODE: ${{ inputs.mode }}
+    steps:
+      - name: deps
+        run: python3 -m pip install -q boto3
+      - name: run
+        run: |
+          python3 - <<'PY'
+          import os
+          import boto3
+          from botocore.config import Config
+          from collections import Counter
+
+          s3 = boto3.client(
+              "s3",
+              aws_access_key_id=os.environ["ARVAN_ACCESS_KEY"],
+              aws_secret_access_key=os.environ["ARVAN_SECRET_KEY"],
+              endpoint_url=os.environ["ARVAN_ENDPOINT"],
+              region_name=os.environ["ARVAN_REGION"],
+              config=Config(signature_version="s3v4",
+                            s3={"addressing_style": "path"},
+                            connect_timeout=15, read_timeout=60,
+                            retries={"max_attempts": 2}),
+          )
+          bucket = os.environ["ARVAN_BUCKET"]
+
+          def list_all():
+              objs, token = [], None
+              while True:
+                  kw = {"Bucket": bucket, "MaxKeys": 1000}
+                  if token:
+                      kw["ContinuationToken"] = token
+                  r = s3.list_objects_v2(**kw)
+                  objs.extend(r.get("Contents", []))
+                  if not r.get("IsTruncated"):
+                      break
+                  token = r.get("NextContinuationToken")
+              return objs
+
+          objs = list_all()
+          folders = [o for o in objs if o["Key"].endswith("/")]
+          files = [o for o in objs if not o["Key"].endswith("/")]
+          print(f"objects={len(objs)} files={len(files)} folder_markers={len(folders)} bytes={sum(o['Size'] for o in files)}")
+          for f in folders:
+              print("FOLDER", f["Key"])
+          prefixes = Counter(o["Key"].split("/")[0] for o in files if "/" in o["Key"])
+          for p, n in sorted(prefixes.items()):
+              print(f"PREFIX {p}/ files={n}")
+          roots = sorted([o for o in files if "/" not in o["Key"]], key=lambda x: x["Key"])
+          print(f"root_files={len(roots)}")
+          for o in roots[:60]:
+              print("ROOT", o["Size"], o["Key"])
+          if len(roots) > 60:
+              print("... and", len(roots) - 60, "more root files")
+
+          mode = os.environ.get("MODE", "list")
+          if mode == "delete":
+              deleted = failed = 0
+              for o in files:
+                  try:
+                      s3.delete_object(Bucket=bucket, Key=o["Key"])
+                      deleted += 1
+                  except Exception as e:
+                      failed += 1
+                      print("DEL_FAIL", o["Key"], repr(e)[:180])
+              print(f"deleted={deleted} failed={failed}")
+              left = list_all()
+              print(f"remaining={len(left)}")
+              for o in left:
+                  print("LEFT", o["Key"])
+          print("DONE mode=" + mode)
+          PY
