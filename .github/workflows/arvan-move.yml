@@ -1,0 +1,48 @@
+name: arvan-move
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  move:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Move objects (copy + delete)
+        env:
+          ARVAN_ACCESS_KEY: ${{ secrets.ARVAN_ACCESS_KEY }}
+          ARVAN_SECRET_KEY: ${{ secrets.ARVAN_SECRET_KEY }}
+          ARVAN_BUCKET: ${{ vars.ARVAN_BUCKET || 'hamyar-e-man' }}
+          ARVAN_ENDPOINT: ${{ vars.ARVAN_ENDPOINT || 'https://s3.ir-thr-at1.arvan.cloud' }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, sys
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+          moves = json.load(open('arvan-place/move-tools.json', encoding='utf-8'))
+          s3 = boto3.client('s3', endpoint_url=os.environ['ARVAN_ENDPOINT'],
+              aws_access_key_id=os.environ['ARVAN_ACCESS_KEY'],
+              aws_secret_access_key=os.environ['ARVAN_SECRET_KEY'],
+              config=Config(signature_version='s3v4', s3={'addressing_style': 'path'}),
+              region_name='ir-thr-at1')
+          B = os.environ['ARVAN_BUCKET']
+          ok = fail = 0
+          for m in moves:
+              try:
+                  s3.copy_object(Bucket=B, CopySource={'Bucket': B, 'Key': m['from']}, Key=m['to'])
+                  s3.delete_object(Bucket=B, Key=m['from'])
+                  print(f"MOVED {m['from']} -> {m['to']}", flush=True)
+                  ok += 1
+              except ClientError as e:
+                  print(f"FAIL {m['from']}: {e}", flush=True)
+                  fail += 1
+          print(f"PROGRESS ok={ok} fail={fail}", flush=True)
+          if fail:
+              sys.exit(1)
+          EOF
