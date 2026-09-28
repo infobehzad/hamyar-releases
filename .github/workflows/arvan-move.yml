@@ -19,7 +19,7 @@ jobs:
           ARVAN_ACCESS_KEY: ${{ secrets.ARVAN_ACCESS_KEY }}
           ARVAN_SECRET_KEY: ${{ secrets.ARVAN_SECRET_KEY }}
           ARVAN_BUCKET: ${{ vars.ARVAN_BUCKET || 'hamyar-e-man' }}
-          ARVAN_ENDPOINT: ${{ vars.ARVAN_ENDPOINT || 'https://s3.ir-thr-at1.arvan.cloud' }}
+          ARVAN_ENDPOINT: ${{ vars.ARVAN_ENDPOINT || 'https://s3.ir-thr-at1.arvanstorage.ir' }}
         run: |
           python3 - <<'EOF'
           import json, os, sys
