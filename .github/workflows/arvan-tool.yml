@@ -17,6 +17,8 @@ jobs:
     permissions:
       contents: read
     env:
+      ARVAN_ACCESS_KEY: ${{ secrets.ARVAN_ACCESS_KEY }}
+      ARVAN_SECRET_KEY: ${{ secrets.ARVAN_SECRET_KEY }}
       ARVAN_ENDPOINT: https://s3.ir-thr-at1.arvanstorage.ir
       ARVAN_REGION: ir-thr-at1
       ARVAN_BUCKET: hamyar-e-man
